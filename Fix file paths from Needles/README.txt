@@ -1,0 +1,1 @@
+this python script takes the output of the sql query "FileMigrationfile_path_with_casenum" and truncates the file path so that it only goes 4 directories deep
