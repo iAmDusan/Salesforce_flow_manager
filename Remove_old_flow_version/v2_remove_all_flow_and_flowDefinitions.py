@@ -25,21 +25,21 @@ headers = {
 
 def retrieve_flow_definition_details():
     query = f"SELECT Id, DeveloperName, LatestVersionId, LatestVersion.VersionNumber FROM FlowDefinition WHERE DeveloperName = '{flow_api_name}'"
-    response = requests.get(url, headers=headers, params={'q': query})
+    encoded_query = requests.utils.quote(query)
+    full_url = f"{url}?q={encoded_query}"
+    response = requests.get(full_url, headers=headers)
     response.raise_for_status()
     data = response.json()
     return data['records'][0] if data.get('records') else None
 
 def retrieve_flow_versions(flow_definition_info):
-    latest_version_number = flow_definition_info['LatestVersion']['VersionNumber']
-    flow_versions = []
-    for version_number in range(1, latest_version_number + 1):
-        query = f"SELECT Id, ApiVersion, VersionNumber, DefinitionId, FullName, Description, MasterLabel FROM Flow WHERE DefinitionId = '{flow_definition_info['Id']}' AND VersionNumber = {version_number}"
-        response = requests.get(url, headers=headers, params={'q': query})
-        response.raise_for_status()
-        data = response.json()
-        flow_versions.extend(data.get('records', []))
-    return flow_versions
+    query = f"SELECT Id, ApiVersion, VersionNumber, DefinitionId FROM Flow WHERE DefinitionId = '{flow_definition_info['Id']}' ORDER BY VersionNumber ASC"
+    encoded_query = requests.utils.quote(query)
+    full_url = f"{url}?q={encoded_query}"
+    response = requests.get(full_url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    return data.get('records', [])
 
 def delete_flow(flow_id):
     delete_flow_url = f"{instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
@@ -57,11 +57,10 @@ def display_flow_definition_info(flow_definition_info):
 def display_flow_versions(flow_versions):
     print(Fore.YELLOW + "\nFlow Versions:")
     table = PrettyTable()
-    table.field_names = ["ID", "Version Number", "API Version", "Definition ID", "Full Name", "Description", "Master Label"]
+    table.field_names = ["ID", "Version Number", "API Version", "Definition ID"]
     for fv in flow_versions:
-        table.add_row([fv['Id'], fv['VersionNumber'], fv['ApiVersion'], fv['DefinitionId'], fv['FullName'][:30], fv['Description'][:50], fv['MasterLabel'][:30]])
+        table.add_row([fv['Id'], fv['VersionNumber'], fv['ApiVersion'], fv['DefinitionId']])
     print(table)
-
 
 def main():
     try:
