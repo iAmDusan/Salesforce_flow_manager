@@ -9,6 +9,10 @@ This Python script allows you to manage Flow versions in a Salesforce org. It pr
 
 Before running the script, ensure that you have the following:
 
+```bash
+pip install requests configparser prettytable colorama
+```
+
 - Python 3.x installed
 - Required Python packages: `requests`, `configparser`, `prettytable`, `colorama`
 - Salesforce org credentials (instance URL and session ID)
