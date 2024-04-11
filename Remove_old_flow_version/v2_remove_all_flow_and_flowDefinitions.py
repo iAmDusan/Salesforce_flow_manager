@@ -29,7 +29,6 @@ headers = {
 }
 
 
-
 def retrieve_all_flows():
     query = "SELECT Id, DeveloperName, LatestVersionId, LatestVersion.VersionNumber, LatestVersion.Status FROM FlowDefinition"
     encoded_query = requests.utils.quote(query)
@@ -57,9 +56,6 @@ def retrieve_flow_versions(flow_definition_info):
     data = response.json()
     return data.get('records', [])
 
-
-
-
 def delete_flow(flow_id):
     delete_flow_url = f"{instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
     response = requests.delete(delete_flow_url, headers=headers)
@@ -69,9 +65,6 @@ def delete_flow(flow_id):
     else:
         response.raise_for_status()
         print(Fore.GREEN + f"Flow with ID '{flow_id}' deleted successfully.")
-
-
-
 
 def display_flow_definition_info(flow_definition_info):
     print(Fore.YELLOW + "FlowDefinition Details:")
@@ -216,10 +209,6 @@ def main():
     except Exception as e:
         print(Fore.RED + f"General Error: {e}")
 
-
-
-
-
 def delete_all_versions_except_active(flow_definition_info):
     flow_versions = retrieve_flow_versions(flow_definition_info)
     active_version_id = flow_definition_info['LatestVersionId']
@@ -232,7 +221,6 @@ def delete_all_versions_except_active(flow_definition_info):
         print(Fore.GREEN + f"Inactive versions deleted successfully for flow: {flow_definition_info['DeveloperName']}")
     else:
         print(Fore.YELLOW + f"No inactive versions found for flow: {flow_definition_info['DeveloperName']}")
-
 
 def process_flow(flow_api_name):
     flow_definition_info = retrieve_flow_definition_details(flow_api_name)
