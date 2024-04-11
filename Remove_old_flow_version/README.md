@@ -29,5 +29,8 @@ session_id = YOUR_SALESFORCE_SESSION_ID
 flow_api_names = FLOW_API_NAME_1, FLOW_API_NAME_2
 ```
 
-Replace YOUR_SALESFORCE_INSTANCE_URL with your Salesforce org's instance URL, YOUR_SALESFORCE_SESSION_ID with your valid Salesforce session ID, and FLOW_API_NAME_1, FLOW_API_NAME_2, etc., with the API names of the flows you want to manage (comma-separated)
+Replace the following placeholders with appropriate values:
 
+- `YOUR_SALESFORCE_INSTANCE_URL`: Your Salesforce org's instance URL
+- `YOUR_SALESFORCE_SESSION_ID`: Your valid Salesforce session ID
+- `FLOW_API_NAME_1, FLOW_API_NAME_2, etc.`: The API names of the flows you want to manage (comma-separated)
