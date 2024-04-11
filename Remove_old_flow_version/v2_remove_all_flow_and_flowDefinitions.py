@@ -31,7 +31,7 @@ headers = {
 
 
 def retrieve_all_flows():
-    query = "SELECT Id, DeveloperName, LatestVersionId, LatestVersion.VersionNumber FROM FlowDefinition"
+    query = "SELECT Id, DeveloperName, LatestVersionId, LatestVersion.VersionNumber, LatestVersion.Status FROM FlowDefinition"
     encoded_query = requests.utils.quote(query)
     full_url = f"{url}?q={encoded_query}"
     response = requests.get(full_url, headers=headers)
@@ -106,9 +106,10 @@ def get_user_selection(flow_versions):
 def display_all_flows(all_flows):
     print(Fore.YELLOW + "\nAll Flows in the Org:")
     table = PrettyTable()
-    table.field_names = ["Index", "ID", "Developer Name", "Latest Version ID", "Latest Version Number"]
+    table.field_names = ["Index", "ID", "Developer Name", "Latest Version ID", "Latest Version Number", "Active"]
     for index, flow in enumerate(all_flows, start=1):
-        table.add_row([index, flow['Id'], flow['DeveloperName'], flow['LatestVersionId'], flow['LatestVersion']['VersionNumber']])
+        is_active = flow['LatestVersion']['Status'] == 'Active'
+        table.add_row([index, flow['Id'], flow['DeveloperName'], flow['LatestVersionId'], flow['LatestVersion']['VersionNumber'], "Yes" if is_active else "No"])
     print(table)
 
 def get_user_selection_for_flows(all_flows):
