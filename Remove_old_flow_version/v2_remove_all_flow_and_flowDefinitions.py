@@ -10,7 +10,7 @@ init(autoreset=True)
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Read configuration from config.ini in the script's directory
-config_path = os.path.join(script_dir, 'configLorenz.ini')
+config_path = os.path.join(script_dir, 'configLorenzSandbox.ini')
 # config_path = os.path.join(script_dir, 'configColgate.ini')
 config = configparser.ConfigParser()
 config.read(config_path)
@@ -27,6 +27,8 @@ headers = {
     'Authorization': f'Bearer {session_id}',
     'Content-Type': 'application/json'
 }
+
+
 
 def retrieve_all_flows():
     query = "SELECT Id, DeveloperName, LatestVersionId, LatestVersion.VersionNumber FROM FlowDefinition"
@@ -55,11 +57,21 @@ def retrieve_flow_versions(flow_definition_info):
     data = response.json()
     return data.get('records', [])
 
+
+
+
 def delete_flow(flow_id):
     delete_flow_url = f"{instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
     response = requests.delete(delete_flow_url, headers=headers)
-    response.raise_for_status()
-    print(Fore.GREEN + f"Flow with ID '{flow_id}' deleted successfully.")
+    
+    if response.status_code == 400 and "DELETE_FAILED" in response.text:
+        print(Fore.YELLOW + f"Skipping deletion of active flow version with ID '{flow_id}'.")
+    else:
+        response.raise_for_status()
+        print(Fore.GREEN + f"Flow with ID '{flow_id}' deleted successfully.")
+
+
+
 
 def display_flow_definition_info(flow_definition_info):
     print(Fore.YELLOW + "FlowDefinition Details:")
@@ -105,38 +117,121 @@ def get_user_selection_for_flows(all_flows):
     selected_indexes = [int(index.strip()) for index in user_input.split(',') if index.strip().isdigit()]
     return [all_flows[index - 1]['DeveloperName'] for index in selected_indexes if 1 <= index <= len(all_flows)]
 
+def display_active_flows(all_flows):
+    print(Fore.YELLOW + "\nActive Flows in the Org:")
+    table = PrettyTable()
+    table.field_names = ["Index", "ID", "Developer Name", "Active Version ID", "Active Version Number"]
+    for index, flow in enumerate(all_flows, start=1):
+        table.add_row([index, flow['Id'], flow['DeveloperName'], flow['LatestVersionId'], flow['LatestVersion']['VersionNumber']])
+    print(table)
+
+def delete_inactive_versions(flow_definition_info):
+    flow_versions = retrieve_flow_versions(flow_definition_info)
+    active_version_id = flow_definition_info['LatestVersionId']
+    inactive_versions = [fv for fv in flow_versions if fv['Id'] != active_version_id]
+    
+    if inactive_versions:
+        print(Fore.YELLOW + f"Deleting inactive versions for flow: {flow_definition_info['DeveloperName']}")
+        for fv in inactive_versions:
+            delete_flow(fv['Id'])
+        print(Fore.GREEN + f"Inactive versions deleted successfully for flow: {flow_definition_info['DeveloperName']}")
+    else:
+        print(Fore.YELLOW + f"No inactive versions found for flow: {flow_definition_info['DeveloperName']}")
+
+def get_org_info():
+    query_url = f"{instance_url}/services/data/v52.0/query?q=SELECT+Id,+Name,+IsSandbox,+OrganizationType+FROM+Organization"
+    response = requests.get(query_url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    org_info = data['records'][0]
+    return org_info
+
+def display_org_info(org_info):
+    print(Fore.YELLOW + "Org Information:")
+    table = PrettyTable()
+    table.field_names = ["Instance Name", "Org ID", "Is Sandbox", "Organization Type"]
+    is_sandbox = org_info.get('IsSandbox', False) or 'sandbox' in instance_url.lower()
+    org_type = org_info.get('OrganizationType', 'Unknown')
+    org_id = org_info.get('Id', 'Unknown')
+    table.add_row([org_info['Name'], org_id, "Yes" if is_sandbox else "No", org_type])
+    print(table)
+    if not is_sandbox:
+        print(Fore.RED + "WARNING: This is likely a PRODUCTION org!")
+
 def main():
     try:
-        print(Fore.YELLOW + "Select an option:")
-        print("1. Use flow(s) specified in the config.ini file")
-        print("2. Query all flows in the org and make a selection")
-        option = input("Enter your choice (1 or 2): ")
-
-        if option == "1":
-            flow_api_names = [flow_api_name.strip() for flow_api_name in config.get('Salesforce', 'flow_api_names').split(',')]
-            for flow_api_name in flow_api_names:
-                process_flow(flow_api_name)
-        elif option == "2":
-            all_flows = retrieve_all_flows()
-            if all_flows:
-                display_all_flows(all_flows)
-                selected_flow_api_names = get_user_selection_for_flows(all_flows)
-                if selected_flow_api_names:
-                    config.set('Salesforce', 'flow_api_names', ','.join(selected_flow_api_names))
-                    with open(config_path, 'w') as configfile:
-                        config.write(configfile)
-                    for flow_api_name in selected_flow_api_names:
-                        process_flow(flow_api_name)
-                else:
-                    print(Fore.RED + "No flows selected.")
-            else:
-                print(Fore.RED + "No flows found in the org.")
+        org_info = get_org_info()
+        if org_info:
+            display_org_info(org_info)
         else:
-            print(Fore.RED + "Invalid option selected.")
+            print(Fore.RED + "Unable to retrieve org information.")
+
+        while True:
+            print(Fore.YELLOW + "\nSelect an option:")
+            print("1. Use flow(s) specified in the config.ini file")
+            print("2. Query all flows in the org and make a selection")
+            print("3. Display active flows and delete their inactive versions")
+            print("4. Exit")
+            option = input("Enter your choice (1, 2, 3, or 4): ")
+
+            if option == "1":
+                flow_api_names = [flow_api_name.strip() for flow_api_name in config.get('Salesforce', 'flow_api_names').split(',')]
+                for flow_api_name in flow_api_names:
+                    process_flow(flow_api_name)
+            elif option == "2":
+                all_flows = retrieve_all_flows()
+                if all_flows:
+                    display_all_flows(all_flows)
+                    selected_flow_api_names = get_user_selection_for_flows(all_flows)
+                    if selected_flow_api_names:
+                        config.set('Salesforce', 'flow_api_names', ','.join(selected_flow_api_names))
+                        with open(config_path, 'w') as configfile:
+                            config.write(configfile)
+                        for flow_api_name in selected_flow_api_names:
+                            process_flow(flow_api_name)
+                    else:
+                        print(Fore.RED + "No flows selected.")
+                else:
+                    print(Fore.RED + "No flows found in the org.")
+            elif option == "3":
+                all_flows = retrieve_all_flows()
+                if all_flows:
+                    display_active_flows(all_flows)
+                    confirmation = input(Fore.YELLOW + "Do you want to delete all inactive versions for the listed active flows? (yes/no): ")
+                    if confirmation.lower() in ['yes', 'y']:
+                        for flow in all_flows:
+                            delete_inactive_versions(flow)
+                    else:
+                        print(Fore.RED + "Deletion cancelled.")
+                else:
+                    print(Fore.RED + "No active flows found in the org.")
+            elif option == "4":
+                print(Fore.GREEN + "Exiting the script.")
+                break
+            else:
+                print(Fore.RED + "Invalid option selected. Please try again.")
     except requests.exceptions.HTTPError as e:
         print(Fore.RED + f"HTTP Error: {e.response.status_code} {e.response.reason} {e.response.text}")
     except Exception as e:
         print(Fore.RED + f"General Error: {e}")
+
+
+
+
+
+def delete_all_versions_except_active(flow_definition_info):
+    flow_versions = retrieve_flow_versions(flow_definition_info)
+    active_version_id = flow_definition_info['LatestVersionId']
+    inactive_versions = [fv for fv in flow_versions if fv['Id'] != active_version_id]
+    
+    if inactive_versions:
+        print(Fore.YELLOW + f"Deleting inactive versions for flow: {flow_definition_info['DeveloperName']}")
+        for fv in inactive_versions:
+            delete_flow(fv['Id'])
+        print(Fore.GREEN + f"Inactive versions deleted successfully for flow: {flow_definition_info['DeveloperName']}")
+    else:
+        print(Fore.YELLOW + f"No inactive versions found for flow: {flow_definition_info['DeveloperName']}")
+
 
 def process_flow(flow_api_name):
     flow_definition_info = retrieve_flow_definition_details(flow_api_name)
