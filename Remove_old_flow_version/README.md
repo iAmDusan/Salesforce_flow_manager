@@ -23,13 +23,13 @@ Before running the script, ensure that you have the following:
 instance_url = YOUR_SALESFORCE_INSTANCE_URL
 session_id = YOUR_SALESFORCE_SESSION_ID
 flow_api_names = FLOW_API_NAME_1, FLOW_API_NAME_2
-
-
 Replace YOUR_SALESFORCE_INSTANCE_URL with your Salesforce org's instance URL, YOUR_SALESFORCE_SESSION_ID with your valid Salesforce session ID, and FLOW_API_NAME_1, FLOW_API_NAME_2, etc., with the API names of the flows you want to manage (comma-separated)
+```
 
 ## Script Overview
 
 The script performs the following tasks:
+
 - Imports necessary libraries: `os`, `requests`, `configparser`, `PrettyTable`, and `colorama`.
 - Reads configuration from a `config.ini` file.
 - Determines the directory where the script is located.
