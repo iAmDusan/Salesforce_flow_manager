@@ -1,0 +1,4 @@
+Fix processing of flows after selectionis made:
+
+1. Delete all selected flow completely
+2. Delete all inactive versions of selected flows
