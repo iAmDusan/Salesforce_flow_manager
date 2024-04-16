@@ -1,4 +1,7 @@
-Fix processing of flows after selectionis made:
+Update UI of the buttons
 
-1. Delete all selected flow completely
-2. Delete all inactive versions of selected flows
+Improve "processing" and output for user
+
+Delete ALL versions does not work
+Failed to delete the following flows:
+300VO000007Ib8LYAS: Flow definition not found

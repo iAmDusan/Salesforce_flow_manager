@@ -28,7 +28,6 @@ class App(QMainWindow):
         self.config = None
         self.reverse_sort = False
         self.flow_vars = {}
-        self.flow_definitions = {}
 
         self.create_widgets()
         self.load_last_config()
@@ -73,102 +72,10 @@ class App(QMainWindow):
         splitter.setStretchFactor(0, 1)
         main_layout.addWidget(splitter)
 
-        self.flow_tree = QTreeWidget()
-        self.flow_tree.setColumnCount(4)
-        self.flow_tree.setHeaderLabels(["Select", "Developer Name", "Latest Version", "Last Modified Date"])
-        self.flow_tree.setSelectionMode(QAbstractItemView.NoSelection)
-        self.flow_tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.flow_tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.flow_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.flow_tree.header().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.flow_tree.itemClicked.connect(self.on_flow_tree_click)
-        self.flow_tree.itemExpanded.connect(self.handle_flow_item_expanded)
-        self.checkbox_frame.layout().addWidget(self.flow_tree)
-
         self.status_bar = QLabel()
         self.status_bar.setAlignment(Qt.AlignLeft)
         main_layout.addWidget(self.status_bar)
-
-    def query_all_flows(self):
-        if self.config:
-            all_flows = self.retrieve_all_flows()
-            if all_flows:
-                if not hasattr(self, 'flow_tree'):
-                    self.flow_tree = QTreeWidget()
-                    self.flow_tree.setColumnCount(4)
-                    self.flow_tree.setHeaderLabels(["Select", "Developer Name", "Latest Version", "Last Modified Date"])
-                    self.flow_tree.setSelectionMode(QAbstractItemView.NoSelection)
-                    self.flow_tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-                    self.flow_tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
-                    self.flow_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-                    self.flow_tree.header().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-                    self.flow_tree.itemClicked.connect(self.on_flow_tree_click)
-                    self.checkbox_frame.layout().addWidget(self.flow_tree)
-                    self.flow_vars = self.create_flow_checkboxes(all_flows)
-
-                self.create_select_all_checkbox()
-
-                self.update_flow_checkboxes(all_flows)
-
-                for widget in self.checkbox_frame.children():
-                    if isinstance(widget, QPushButton):
-                        widget.deleteLater()
-
-                delete_all_button = QPushButton("Delete All Versions of Selected Flows")
-                delete_all_button.clicked.connect(self.delete_all_versions)
-                self.checkbox_frame.layout().addWidget(delete_all_button)
-
-                delete_inactive_button = QPushButton("Delete Inactive Versions of Selected Flows")
-                delete_inactive_button.clicked.connect(self.delete_inactive_versions)
-                self.checkbox_frame.layout().addWidget(delete_inactive_button)
-                
-                flow_info_button = QPushButton("Show Selected Flow Info")
-                flow_info_button.clicked.connect(self.show_selected_flow_info)
-                self.checkbox_frame.layout().addWidget(flow_info_button)
-
-
-            else:
-                self.text_area.append("No flows found to display.\n")
-                self.scroll_to_bottom()
-        else:
-            QMessageBox.critical(self, "Error", "Please load a config file first.")
-
-    def create_flow_checkboxes(self, all_flows):
-        print("Creating flow checkboxes...")
-        self.flow_tree.clear()
-        self.flow_vars = {}
-        self.flow_definitions = {}
-
-        for flow in all_flows:
-            flow_id = str(flow["Id"])
-            flow_item = QTreeWidgetItem(self.flow_tree)
-
-            # Populate the "Developer Name" column
-            flow_item.setText(1, flow["DeveloperName"])
-
-            # Populate the "Latest Version" column
-            if 'LatestVersion' in flow and 'VersionNumber' in flow['LatestVersion']:
-                latest_version_number = str(flow['LatestVersion']['VersionNumber'])
-            else:
-                latest_version_number = "N/A"
-            flow_item.setText(2, latest_version_number)
-
-            # Populate the "Last Modified Date" column
-            flow_item.setText(3, flow["LastModifiedDate"].split('T')[0])
-
-            checkbox = QCheckBox()
-            checkbox.setText(flow["DeveloperName"])
-            self.flow_vars[flow_id] = checkbox
-            self.flow_tree.setItemWidget(flow_item, 0, checkbox)
-
-            self.flow_definitions[flow["DeveloperName"]] = flow  # Store the flow definition data using the DeveloperName as the key
-
-        self.flow_tree.setSortingEnabled(True)
-        self.flow_tree.expandAll()  # Expand all items initially
-
-        print(f"Number of flows processed: {len(all_flows)}")
-        return self.flow_vars
-            
+        
     def set_status(self, message, color="black"):
         self.status_bar.setText(message)
         self.status_bar.setStyleSheet(f"color: {color}")
@@ -241,7 +148,6 @@ class App(QMainWindow):
         response = requests.get(full_url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
-        print("Retrieved flows:", data.get('records', []))
         return data.get('records', [])
 
     def retrieve_flow_definition_details(self, flow_api_name):
@@ -252,10 +158,11 @@ class App(QMainWindow):
         response = requests.get(full_url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
-        print(f"Flow Definition for '{flow_api_name}':", data['records'])
         if data['records']:
             return data['records'][0]
         else:
+            self.text_area.append(f"No FlowDefinition found for {flow_api_name}.\n")
+            self.scroll_to_bottom()
             return None
 
     def retrieve_flow_versions(self, flow_definition_info):
@@ -266,7 +173,6 @@ class App(QMainWindow):
         response = requests.get(full_url, headers=self.headers)
         response.raise_for_status()
         data = response.json()
-        print(f"Flow Versions for '{flow_definition_info['DeveloperName']}':", data.get('records', []))
         return data.get('records', [])
 
     def delete_flow(self, flow_id):
@@ -299,13 +205,7 @@ class App(QMainWindow):
         self.scroll_to_bottom()
 
     def get_selected_flows(self):
-        selected_flows = []
-        for i in range(self.flow_tree.topLevelItemCount()):
-            flow_item = self.flow_tree.topLevelItem(i)
-            checkbox = self.flow_tree.itemWidget(flow_item, 0)
-            if checkbox and checkbox.isChecked():
-                flow_id = next(key for key, value in self.flow_vars.items() if value == checkbox)
-                selected_flows.append(flow_id)
+        selected_flows = [flow_id for flow_id, checkbox in self.flow_vars.items() if checkbox.isChecked()]
         return selected_flows
 
     def display_active_flows(self, all_flows):
@@ -317,19 +217,80 @@ class App(QMainWindow):
         self.text_area.append(table.get_string() + "\n")
         self.scroll_to_bottom()
 
+    def query_all_flows(self):
+        if self.config:
+            all_flows = self.retrieve_all_flows()
+            if all_flows:
+                if not hasattr(self, 'flow_tree'):
+                    self.flow_tree = QTreeWidget()
+                    self.flow_tree.setColumnCount(4)
+                    self.flow_tree.setHeaderLabels(["Select", "Developer Name", "Latest Version", "Last Modified Date"])
+                    self.flow_tree.setSelectionMode(QAbstractItemView.NoSelection)
+                    self.flow_tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+                    self.flow_tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
+                    self.flow_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+                    self.flow_tree.header().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+                    self.flow_tree.itemClicked.connect(self.on_flow_tree_click)
+                    self.checkbox_frame.layout().addWidget(self.flow_tree)
+                    self.flow_vars = self.create_flow_checkboxes(all_flows)
+
+                self.create_select_all_checkbox()
+
+                self.update_flow_checkboxes(all_flows)
+
+                for widget in self.checkbox_frame.children():
+                    if isinstance(widget, QPushButton):
+                        widget.deleteLater()
+
+                # process_button = QPushButton("Process Selected Flows")
+                # process_button.clicked.connect(lambda: self.process_selected_flows(all_flows))
+                # self.checkbox_frame.layout().addWidget(process_button)
+                
+                delete_all_button = QPushButton("Delete All Versions of Selected Flows")
+                delete_all_button.clicked.connect(self.delete_all_versions)
+                self.checkbox_frame.layout().addWidget(delete_all_button)
+
+                delete_inactive_button = QPushButton("Delete Inactive Versions of Selected Flows")
+                delete_inactive_button.clicked.connect(self.delete_inactive_versions)
+                self.checkbox_frame.layout().addWidget(delete_inactive_button)
+                
+                flow_info_button = QPushButton("Show Selected Flow Info")
+                flow_info_button.clicked.connect(self.show_selected_flow_info)
+                self.checkbox_frame.layout().addWidget(flow_info_button)
+
+
+                
+
+            else:
+                self.text_area.append("No flows found to display.\n")
+                self.scroll_to_bottom()
+        else:
+            QMessageBox.critical(self, "Error", "Please load a config file first.")
+
+    def create_flow_checkboxes(self, all_flows):
+        self.flow_tree.clear()
+        flow_vars = {}
+
+        for flow in all_flows:
+            flow_id = str(flow["Id"])
+            checkbox = QCheckBox()
+            checkbox.setText(flow["DeveloperName"])  # Set the flow API name as the checkbox text
+            flow_vars[flow_id] = checkbox
+            item = QTreeWidgetItem(self.flow_tree)
+            item.setText(1, flow["DeveloperName"])
+            item.setText(2, str(flow["LatestVersion"]["VersionNumber"]))
+            item.setText(3, flow["LastModifiedDate"].split('T')[0])
+            self.flow_tree.setItemWidget(item, 0, checkbox)
+
+        self.flow_tree.setSortingEnabled(True)
+
+        return flow_vars
+
     def on_flow_tree_click(self, item, column):
         if column == 0:
-            if item.parent() is None:  # Flow item clicked
-                checkbox = self.flow_tree.itemWidget(item, 0)
-                if checkbox:
-                    checkbox.setChecked(not checkbox.isChecked())
-                    self.update_select_all_status()
-            else:  # Version item clicked
-                parent_item = item.parent()
-                parent_checkbox = self.flow_tree.itemWidget(parent_item, 0)
-                if parent_checkbox:
-                    parent_checkbox.setChecked(not parent_checkbox.isChecked())
-                    self.update_select_all_status()
+            checkbox = self.flow_tree.itemWidget(item, 0)
+            checkbox.setChecked(not checkbox.isChecked())
+            self.update_select_all_status()
 
     def update_select_all_status(self):
         all_checked = all(var.isChecked() for var in self.flow_vars.values())
@@ -393,24 +354,20 @@ class App(QMainWindow):
                 deleted_flows = []
                 not_deleted_flows = []
                 for flow_id in selected_flows:
-                    flow_api_name = self.flow_vars[flow_id].text()  # Get the flow API name from the checkbox text
-                    flow_info = self.retrieve_flow_definition_details(flow_api_name)
+                    flow_info = self.retrieve_flow_definition_details(flow_id)
                     if flow_info:
                         flow_versions = self.retrieve_flow_versions(flow_info)
                         if flow_versions:
-                            all_versions_deleted = True
                             for version in flow_versions:
                                 try:
                                     self.delete_flow(version['Id'])
                                 except Exception as e:
-                                    all_versions_deleted = False
-                                    not_deleted_flows.append(f"{flow_info['DeveloperName']} (Version {version['VersionNumber']}): {str(e)}")
-                            if all_versions_deleted:
-                                deleted_flows.append(flow_info['DeveloperName'])
+                                    not_deleted_flows.append(f"{flow_id} (Version {version['VersionNumber']}): {str(e)}")
+                            deleted_flows.append(flow_id)
                         else:
-                            not_deleted_flows.append(f"{flow_info['DeveloperName']}: No versions found")
+                            not_deleted_flows.append(f"{flow_id}: No versions found")
                     else:
-                        not_deleted_flows.append(f"{flow_api_name}: Flow definition not found")
+                        not_deleted_flows.append(f"{flow_id}: Flow definition not found")
 
                 if deleted_flows:
                     self.text_area.append(f"Successfully deleted all versions of the following flows:\n{', '.join(deleted_flows)}\n")
@@ -482,36 +439,60 @@ class App(QMainWindow):
 
         self.scroll_to_bottom()
 
-    def handle_flow_item_expanded(self, item):
-        if item.childCount() == 0:  # Check if the item has no children
-            flow_developer_name = item.text(1)  # Assuming the flow name is in column 1
-            flow_data = self.flow_definitions.get(flow_developer_name)
-            if flow_data:
-                flow_info = self.retrieve_flow_definition_details(flow_developer_name)
-                if flow_info:
-                    flow_versions = self.retrieve_flow_versions(flow_info)
-                    self.add_flow_versions_to_tree(item, flow_versions)
-                else:
-                    print("No flow info found for:", flow_developer_name)  # Error handling
-            else:
-                print("No data found for:", flow_developer_name)  # Error handling
+    def process_selected_flows(self, all_flows):
+        selected_flow_api_names = self.get_selected_flows(all_flows)
 
-    def add_flow_versions_to_tree(self, parent_item, flow_versions):
-        for version in flow_versions:
-            version_item = QTreeWidgetItem(parent_item)
-            version_item.setText(1, f"Version {version['VersionNumber']}")
-            version_item.setText(2, str(version['VersionNumber']))
-            if 'LastModifiedDate' in version:
-                version_item.setText(3, version['LastModifiedDate'].split('T')[0])
+        if selected_flow_api_names:
+            self.text_area.append(f"Selected flows for processing: {', '.join(selected_flow_api_names)}\n")
+            self.scroll_to_bottom()
+
+            progress_bar = QProgressBar()
+            progress_bar.setRange(0, len(selected_flow_api_names))
+            progress_bar.setValue(0)
+            self.statusBar().addPermanentWidget(progress_bar)
+
+            for index, flow_name in enumerate(selected_flow_api_names, start=1):
+                self.process_selected_flow(flow_name)
+                progress_bar.setValue(index)
+                QApplication.processEvents()
+
+            self.statusBar().removeWidget(progress_bar)
+        else:
+            self.text_area.append("No flows selected for processing.\n")
+            self.scroll_to_bottom()
+
+    def process_selected_flow(self, flow_api_name):
+        flow_definition_info = self.retrieve_flow_definition_details(flow_api_name)
+        if flow_definition_info:
+            self.display_flow_definition_info(flow_definition_info)
+            flow_versions = self.retrieve_flow_versions(flow_definition_info)
+            if flow_versions:
+                self.display_flow_versions(flow_versions)
+                selected_ids = self.get_user_selection(flow_versions)
+                if selected_ids:
+                    confirmation = QMessageBox.question(self, "Confirm Deletion", "Are you sure you want to delete the selected flow versions?", QMessageBox.Yes | QMessageBox.No)
+                    if confirmation == QMessageBox.Yes:
+                        for flow_id in selected_ids:
+                            self.delete_flow(flow_id)
+                        self.text_area.append("Selected flow versions deleted successfully!\n")
+                        self.scroll_to_bottom()
+                    else:
+                        self.text_area.append("Deletion cancelled.\n")
+                        self.scroll_to_bottom()
+                else:
+                    self.text_area.append("No flow versions selected.\n")
+                    self.scroll_to_bottom()
             else:
-                version_item.setText(3, "N/A")
-        parent_item.setExpanded(True)  # Expand the parent item to show the child items
+                self.text_area.append("No flow versions found for this flow.\n")
+                self.scroll_to_bottom()
+        else:
+            self.text_area.append(f"No FlowDefinition found for {flow_api_name}.\n")
+            self.scroll_to_bottom()
 
     def scroll_to_bottom(self):
         cursor = self.text_area.textCursor()
         cursor.movePosition(QTextCursor.End)
         self.text_area.setTextCursor(cursor)
-
 
 def main():
     app = QApplication(sys.argv)

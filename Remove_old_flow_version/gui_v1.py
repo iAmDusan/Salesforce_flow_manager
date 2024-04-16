@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import os
 import requests
 import configparser
-from prettytable import PrettyTable, FRAME, MSWORD_FRIENDLY, PLAIN_COLUMNS, RANDOM
+from prettytable import PrettyTable
 
 # Determine the directory where the script is located
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -48,7 +48,7 @@ class App(tk.Tk):
         self.checkbox_frame = ttk.Frame(self.paned_window)
         self.paned_window.add(self.checkbox_frame, weight=1)
         self.output_frame = ttk.LabelFrame(self.paned_window, text="Output")
-        self.paned_window.add(self.output_frame, weight=0)
+        self.paned_window.add(self.output_frame, weight=1)
         self.text_area = tk.Text(self.output_frame, wrap=tk.WORD, font=("Courier", 10), height=10)
         self.text_area.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.scrollbar = ttk.Scrollbar(self.output_frame, command=self.text_area.yview)
@@ -276,7 +276,7 @@ class App(tk.Tk):
         all_checked = all(var.get() for var in self.flow_vars.values())
         self.select_all_var.set(all_checked)
         # Update the "Select All" checkbox's visual state
-        self.select_all_checkbox.config(text="Select All" if all_checked else "Deselect All")
+        self.select_all_checkbox.config(text="Select All" if all_checked else "Select All")
 
     def create_select_all_checkbox(self):
         # Create "Select All" checkbox only if it doesn't exist
@@ -284,16 +284,6 @@ class App(tk.Tk):
             self.select_all_var = tk.BooleanVar(value=False)
             self.select_all_checkbox = ttk.Checkbutton(self.flow_frame, text="Select All", variable=self.select_all_var, command=self.toggle_select_all)
             self.select_all_checkbox.pack(pady=5)
-
-    # def toggle_flow_selection(self, flow_id):
-    #     # Change the BooleanVar and update Treeview
-    #     var = self.flow_vars.get(flow_id)  # Retrieve the BooleanVar
-    #     if var is not None:
-    #         var.set(not var.get())  # Toggle the BooleanVar state
-    #         checkbox_value = "✓" if var.get() else ""  # Update the checkbox value
-    #         self.flow_treeview.item(flow_id, values=(checkbox_value,) + self.flow_treeview.item(flow_id, 'values')[1:])  # Update Treeview
-    #     else:
-    #         print(f"Error: BooleanVar not found for flow_id: {flow_id}") 
 
     def update_flow_checkboxes(self, all_flows):
         for flow in all_flows:
