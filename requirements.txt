@@ -1,0 +1,7 @@
+sys
+os
+requests
+configparser
+logging
+xmltodict
+PyQt5
