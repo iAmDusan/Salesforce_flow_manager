@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlowDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <attributes>{'type': 'FlowDefinition', 'url': '/services/data/v52.0/tooling/sobjects/FlowDefinition/300VO000006uBoZYAU'}</attributes>
+    <Id>300VO000006uBoZYAU</Id>
+    <DeveloperName>Insurancea</DeveloperName>
+    <LatestVersionId>301VO000007G950YAC</LatestVersionId>
+    <ActiveVersionId>301VO000007G950YAC</ActiveVersionId>
+    <ActiveVersion>{'attributes': {'type': 'Flow', 'url': '/services/data/v52.0/tooling/sobjects/Flow/301VO000007G950YAC'}, 'VersionNumber': 17}</ActiveVersion>
+    <LatestVersion>{'attributes': {'type': 'Flow', 'url': '/services/data/v52.0/tooling/sobjects/Flow/301VO000007G950YAC'}, 'VersionNumber': 17}</LatestVersion>
+</FlowDefinition>
