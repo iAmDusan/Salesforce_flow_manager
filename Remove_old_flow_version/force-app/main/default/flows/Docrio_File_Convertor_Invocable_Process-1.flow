@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
+<Flow>
+	<attributes>
+		<type>Flow</type>
+		<url>/services/data/v52.0/tooling/sobjects/Flow/301Dn0000005JvNIAU</url>
+	</attributes>
+	<Id>301Dn0000005JvNIAU</Id>
+	<DefinitionId>300Dn0000000uYjIAI</DefinitionId>
+	<MasterLabel>Docrio File Convertor Invocable Process</MasterLabel>
+	<ManageableState>installed</ManageableState>
+	<VersionNumber>1</VersionNumber>
+	<Status>Active</Status>
+	<Description></Description>
+	<ProcessType>AutoLaunchedFlow</ProcessType>
+	<CreatedDate>2023-01-04T20:47:08.000+0000</CreatedDate>
+	<CreatedById>005Dn000003BbQBIA0</CreatedById>
+	<LastModifiedDate>2023-01-04T20:47:13.000+0000</LastModifiedDate>
+	<LastModifiedById>005Dn000003BbQBIA0</LastModifiedById>
+	<Metadata>
+		<actionCalls></actionCalls>
+		<apexPluginCalls></apexPluginCalls>
+		<apiVersion>49.0</apiVersion>
+		<assignments></assignments>
+		<choices></choices>
+		<collectionProcessors></collectionProcessors>
+		<constants></constants>
+		<decisions></decisions>
+		<description></description>
+		<dynamicChoiceSets></dynamicChoiceSets>
+		<formulas></formulas>
+		<interviewLabel></interviewLabel>
+		<isAdditionalPermissionRequiredToRun></isAdditionalPermissionRequiredToRun>
+		<isTemplate></isTemplate>
+		<label>Docrio File Convertor Invocable Process</label>
+		<loops></loops>
+		<orchestratedStages></orchestratedStages>
+		<processMetadataValues></processMetadataValues>
+		<processType>AutoLaunchedFlow</processType>
+		<recordCreates></recordCreates>
+		<recordDeletes></recordDeletes>
+		<recordLookups></recordLookups>
+		<recordRollbacks></recordRollbacks>
+		<recordUpdates></recordUpdates>
+		<runInMode></runInMode>
+		<screens></screens>
+		<start></start>
+		<startElementReference></startElementReference>
+		<status></status>
+		<steps></steps>
+		<subflows></subflows>
+		<textTemplates></textTemplates>
+		<urls></urls>
+		<waits></waits>
+	</Metadata>
+	<FullName>litify_dfc__Docrio_File_Convertor_Invocable_Process</FullName>
+	<IsTemplate>false</IsTemplate>
+	<TriggerOrder></TriggerOrder>
+	<RunInMode></RunInMode>
+	<ApiVersion>49.0</ApiVersion>
+</Flow>

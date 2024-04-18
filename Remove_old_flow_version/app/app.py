@@ -5,10 +5,11 @@ import configparser
 import logging
 from flow_backup_manager import FlowBackupManager
 from salesforce_api import SalesforceAPI
+from ui_helper import UIHelper
 from prettytable import PrettyTable
 from PyQt5.QtWidgets import (
-    QApplication, QDialogButtonBox, QDialog, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
-    QHBoxLayout, QFrame, QTextEdit, QScrollArea, QProgressBar, QMessageBox, QCheckBox, QSplitter, QTreeWidget,
+    QApplication,   QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
+    QHBoxLayout, QFrame, QTextEdit,  QProgressBar, QMessageBox, QCheckBox, QSplitter, QTreeWidget,
     QTreeWidgetItem, QHeaderView, QAbstractItemView, QFileDialog, QComboBox
 )
 from PyQt5.QtGui import QFont, QTextCursor
@@ -34,14 +35,16 @@ class App(QMainWindow):
         self.progress_bar = None  # Add progress bar attribute
         self.backup_manager = None
         self.splitter = None  # Add splitter attribute
+        self.ui_helper = None  # Initialize as None
+
         self.create_widgets()
+        self.ui_helper = UIHelper(self.flow_tree, self.flow_vars, self.text_area)  # Create UIHelper instance after create_widgets
         self.load_last_config()
         self.setup_logging()
 
-
-
     def setup_logging(self):
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
     def create_widgets(self):
         central_widget = QWidget(self)
@@ -66,7 +69,7 @@ class App(QMainWindow):
         self.query_flows_button = QPushButton("Query All Flows")
         self.query_flows_button.clicked.connect(self.query_all_flows)
         self.filter_combobox = QComboBox()
-        self.filter_combobox.addItems(["All", "Active", "Inactive"])
+        self.filter_combobox.addItems(["All", "Active", "Inactive", "Active Lower Version"])
         self.filter_combobox.currentIndexChanged.connect(self.apply_filter)
         action_layout.addWidget(self.query_flows_button)
         action_layout.addWidget(self.filter_combobox)
@@ -84,7 +87,6 @@ class App(QMainWindow):
 
         main_layout.addLayout(button_layout)
 
-
         # Splitter for Checkbox Frame and Output Frame
         self.splitter = QSplitter(Qt.Vertical)
         self.checkbox_frame = QFrame()
@@ -93,14 +95,15 @@ class App(QMainWindow):
 
         # Flow Tree Widget
         self.flow_tree = QTreeWidget()
-        self.flow_tree.setColumnCount(5)
-        self.flow_tree.setHeaderLabels(["Select", "Developer Name", "Latest Version", "Last Modified Date", "Is Active"])
+        self.flow_tree.setColumnCount(6)  # Increase the column count to 6
+        self.flow_tree.setHeaderLabels(["Select", "Developer Name", "Latest Version", "Active Version", "Last Modified Date", "Is Active"])
         self.flow_tree.setSelectionMode(QAbstractItemView.NoSelection)
         self.flow_tree.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.flow_tree.header().setSectionResizeMode(1, QHeaderView.Stretch)
         self.flow_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.flow_tree.header().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.flow_tree.header().setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        self.flow_tree.header().setSectionResizeMode(5, QHeaderView.ResizeToContents)
         checkbox_layout.addWidget(self.flow_tree)
 
         # Output Frame
@@ -129,45 +132,6 @@ class App(QMainWindow):
         # Create Select All checkbox after flow_tree is initialized
         self.select_all_checkbox = None
         self.create_select_all_checkbox()
-        
-
-
-    def apply_filter(self, index):
-        filter_text = self.filter_combobox.currentText()
-        for i in range(self.flow_tree.topLevelItemCount()):
-            item = self.flow_tree.topLevelItem(i)
-            is_active = item.text(4) == "Yes"
-            if filter_text == "All" or (filter_text == "Active" and is_active) or (filter_text == "Inactive" and not is_active):
-                item.setHidden(False)
-            else:
-                item.setHidden(True)
-
-
-    def backup_selected_flows(self):
-        selected_flows = self.get_selected_flows()
-        if not selected_flows:
-            QMessageBox.information(self, "No Flows Selected", "Please select at least one flow to backup.")
-            return
-
-        backup_dir = QFileDialog.getExistingDirectory(self, "Select Backup Directory")
-        if backup_dir:
-            self.backup_manager.backup_flows(selected_flows, backup_dir, self.text_area, self.find_flow_item_by_id, self.retrieve_flow_definition_details, self.retrieve_flow_versions)
-        else:
-            self.text_area.append("Backup cancelled.\n")
-
-        self.scroll_to_bottom()
-
-
-    def restore_flow(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Flow Backup File", "", "JSON Files (*.json);;XML Files (*.xml)")
-        if file_path:
-            try:
-                self.backup_manager.restore_flow_definition(file_path)
-                self.text_area.append(f"Flow restored successfully from {file_path}\n")
-            except Exception as e:
-                self.text_area.append(f"Error restoring flow: {str(e)}\n")
-            self.scroll_to_bottom()
-
 
     def query_all_flows(self):
         if self.config:
@@ -222,42 +186,66 @@ class App(QMainWindow):
         else:
             QMessageBox.critical(self, "Error", "Please load a config file first.")
 
+    def apply_filter(self, index):
+        filter_text = self.filter_combobox.currentText()
+        
+        for i in range(self.flow_tree.topLevelItemCount()):
+            item = self.flow_tree.topLevelItem(i)
+            
+            latest_version = item.text(2)  # "Latest Version" column
+            active_version = item.text(3)  # "Active Version" column
+            is_active_text = item.text(5)  # "Is Active" column
+            
+            # Determine the activity status
+            is_active = is_active_text == "Yes"
+            is_inactive = is_active_text == "No"
+            is_active_lower_version = not is_active and active_version and latest_version != active_version
+
+            # Hide or show the item based on the filter selection
+            if filter_text == "All":
+                item.setHidden(False)
+            elif filter_text == "Active":
+                item.setHidden(not is_active)
+            elif filter_text == "Inactive":
+                item.setHidden(not is_inactive)
+            elif filter_text == "Active Lower Version":
+                item.setHidden(not is_active_lower_version)
+
+
     def create_flow_checkboxes(self, all_flows):
-        self.flow_tree.clear()
-        self.flow_vars = {}
-
-        for flow in all_flows:
-            flow_id = str(flow["Id"])
-            flow_item = QTreeWidgetItem(self.flow_tree)
-
-            flow_item.setText(1, flow["DeveloperName"])
-            flow_item.setText(3, flow["LastModifiedDate"].split('T')[0])
-
-            # Convert version number to an integer and pad it for display
-            latest_version_number = int(flow["LatestVersion"]["VersionNumber"])
-            flow_item.setText(2, str(latest_version_number).zfill(3))  # Pad with zeros for sorting
-            flow_item.setData(2, Qt.UserRole, latest_version_number)  # Store the integer for internal use
-
-            latest_version_id = flow["LatestVersionId"]
-            active_version_id = flow.get("ActiveVersionId", "")
-            is_active = latest_version_id == active_version_id
-            flow_item.setText(4, "Yes" if is_active else "No")
-
-            if is_active:
-                font = flow_item.font(4)
-                font.setBold(True)
-                flow_item.setFont(4, font)
-
-            checkbox = QCheckBox()
-            self.flow_vars[flow_id] = checkbox
-            self.flow_tree.setItemWidget(flow_item, 0, checkbox)
-
-        self.flow_tree.setSortingEnabled(True)
-        # Make sure to sort after the items have been added and UserRole data has been set
-        self.flow_tree.sortByColumn(2, Qt.AscendingOrder)
-        self.flow_tree.expandAll()
-
+        self.flow_vars = self.ui_helper.create_flow_checkboxes(all_flows)
         return self.flow_vars
+
+    def update_flow_checkboxes(self, all_flows):
+        self.ui_helper.update_flow_checkboxes(all_flows)
+
+
+
+
+    def find_flow_item_by_id(self, flow_id):
+        return self.ui_helper.find_flow_item_by_id(flow_id)
+
+    def scroll_to_bottom(self):
+        self.ui_helper.scroll_to_bottom()
+
+    def save_last_config_path(self):
+        self.ui_helper.save_last_config_path(self.config_path)
+
+    def load_last_config(self):
+        config_path = self.ui_helper.load_last_config_path()
+        if config_path:
+            self.config_path_entry.setText(config_path)
+            self.config_path = config_path
+            self.configure_app(config_path)
+
+    def load_config(self):
+        file_path = self.ui_helper.select_config_file()
+        if file_path:
+            self.config_path_entry.setText(file_path)
+            self.config_path = file_path
+            self.save_last_config_path()
+            self.configure_app(file_path)
+
 
 
 
@@ -276,61 +264,28 @@ class App(QMainWindow):
         filter_text = self.filter_combobox.currentText()
         for i in range(self.flow_tree.topLevelItemCount()):
             item = self.flow_tree.topLevelItem(i)
-            is_active = item.text(4) == "Yes"
-            if not item.isHidden() and ((filter_text == "All") or
-                                        (filter_text == "Active" and is_active) or
-                                        (filter_text == "Inactive" and not is_active)):
+            
+            latest_version = item.text(2)
+            active_version = item.text(3)
+            is_active_text = item.text(5)
+            
+            is_active = is_active_text == "Yes"
+            is_inactive = is_active_text == "No"
+            is_active_lower_version = not is_active and active_version and latest_version != active_version
+            
+            matches_filter = (
+                filter_text == "All" or
+                (filter_text == "Active" and is_active) or
+                (filter_text == "Inactive" and is_inactive) or
+                (filter_text == "Active Lower Version" and is_active_lower_version)
+            )
+            
+            if not item.isHidden() and matches_filter:
                 checkbox = self.flow_tree.itemWidget(item, 0)
-                checkbox.setChecked(state == Qt.Checked)
-
-    def update_flow_checkboxes(self, all_flows):
-        count = 0
-        total = len(all_flows)
-        for flow in all_flows:
-            flow_id = str(flow['Id'])
-            checkbox = self.flow_vars.get(flow_id)
-            count += 1
-            self.progress_bar.setValue(int(count / total * 100))  # Update progress bar 
-            if checkbox:
-                item = self.flow_tree.findItems(flow["DeveloperName"], Qt.MatchExactly, 1)[0]
-                self.flow_tree.setItemWidget(item, 0, checkbox)
+                if checkbox:  # Check if the checkbox widget exists
+                    checkbox.setChecked(state == Qt.Checked)
 
 
-
-    def retrieve_all_flows(self):
-        url = f"{self.instance_url}/services/data/v52.0/tooling/query/"
-        query = "SELECT Id, DeveloperName, LatestVersionId, ActiveVersionId, ActiveVersion.VersionNumber, LatestVersion.VersionNumber, LastModifiedDate FROM FlowDefinition"
-        encoded_query = requests.utils.quote(query)
-        full_url = f"{url}?q={encoded_query}"
-        response = requests.get(full_url, headers=self.headers)
-        response.raise_for_status()
-        data = response.json()
-        return data.get('records', [])
-
-    def retrieve_flow_definition_details(self, flow_api_name):
-        url = f"{self.instance_url}/services/data/v52.0/tooling/query/"
-        query = f"SELECT Id, DeveloperName, LatestVersionId, ActiveVersionId, ActiveVersion.VersionNumber, LatestVersion.VersionNumber FROM FlowDefinition WHERE DeveloperName = '{flow_api_name}'"
-        encoded_query = requests.utils.quote(query)
-        full_url = f"{url}?q={encoded_query}"
-        response = requests.get(full_url, headers=self.headers)
-        response.raise_for_status()
-        data = response.json()
-        if data['records']:
-            return data['records'][0]
-        else:
-            self.text_area.append(f"No FlowDefinition found for {flow_api_name}.\n")
-            self.scroll_to_bottom()
-            return None
-
-    def retrieve_flow_versions(self, flow_definition_info):
-        url = f"{self.instance_url}/services/data/v52.0/tooling/query/"
-        query = f"SELECT Id, ApiVersion, VersionNumber, DefinitionId FROM Flow WHERE DefinitionId = '{flow_definition_info['Id']}' ORDER BY VersionNumber ASC"
-        encoded_query = requests.utils.quote(query)
-        full_url = f"{url}?q={encoded_query}"
-        response = requests.get(full_url, headers=self.headers)
-        response.raise_for_status()
-        data = response.json()
-        return data.get('records', [])
 
 
 
@@ -356,17 +311,12 @@ class App(QMainWindow):
         self.text_area.append("Selected Flow Information:\n")
 
         for flow_id in selected_flows:
-            flow_item = self.find_flow_item_by_id(flow_id)
-            if not flow_item:
+            flow_api_name = self.find_flow_item_by_id(flow_id)
+            if not flow_api_name:
                 self.text_area.append(f"Error: Flow item not found for ID {flow_id}.\n")
                 continue
 
-            flow_api_name = flow_item.text(1)  # Assuming API name is in the second column
-            if not flow_api_name.strip():
-                self.text_area.append(f"Error: No API name provided for flow ID {flow_id}.\n")
-                continue
-
-            flow_info = self.retrieve_flow_definition_details(flow_api_name)
+            flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
             if flow_info:
                 self.text_area.append(f"Flow Name: {flow_api_name}\n")
                 self.display_flow_versions(flow_info)
@@ -374,14 +324,6 @@ class App(QMainWindow):
                 self.text_area.append(f"No detailed information found for the flow: {flow_api_name}.\n")
 
         self.scroll_to_bottom()
-
-    def find_flow_item_by_id(self, flow_id):
-        for i in range(self.flow_tree.topLevelItemCount()):
-            item = self.flow_tree.topLevelItem(i)
-            checkbox = self.flow_tree.itemWidget(item, 0)
-            if checkbox and flow_id in self.flow_vars and self.flow_vars[flow_id] == checkbox:
-                return item
-        return None
 
     def delete_all_versions_except_active(self):
         selected_flows = self.get_selected_flows()
@@ -391,9 +333,8 @@ class App(QMainWindow):
                 deleted_flows = []
                 not_deleted_flows = []
                 for flow_id in selected_flows:
-                    flow_item = self.find_flow_item_by_id(flow_id)
-                    if flow_item:
-                        flow_api_name = flow_item.text(1)  # Assuming the DeveloperName is in the second column
+                    flow_api_name = self.find_flow_item_by_id(flow_id)
+                    if flow_api_name:
                         flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
                         if flow_info:
                             active_version_id = flow_info['ActiveVersionId']
@@ -426,7 +367,7 @@ class App(QMainWindow):
             self.text_area.append("No flows selected for deletion.\n")
 
         self.scroll_to_bottom()
-
+    
     def delete_all_versions_except_latest(self):
         selected_flows = self.get_selected_flows()
         if selected_flows:
@@ -435,9 +376,8 @@ class App(QMainWindow):
                 deleted_flows = []
                 not_deleted_flows = []
                 for flow_id in selected_flows:
-                    flow_item = self.find_flow_item_by_id(flow_id)
-                    if flow_item:
-                        flow_api_name = flow_item.text(1)  # Assuming the DeveloperName is in the second column
+                    flow_api_name = self.find_flow_item_by_id(flow_id)
+                    if flow_api_name:
                         flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
                         if flow_info:
                             latest_version_id = flow_info['LatestVersionId']
@@ -479,20 +419,24 @@ class App(QMainWindow):
                 deleted_flows = []
                 not_deleted_flows = []
                 for flow_id in selected_flows:
-                    flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_id)
-                    if flow_info:
-                        flow_versions = self.salesforce_api.retrieve_flow_versions(flow_info)
-                        if flow_versions:
-                            for version in flow_versions:
-                                try:
-                                    self.salesforce_api.delete_flow(version['Id'])
-                                except Exception as e:
-                                    not_deleted_flows.append(f"{flow_id} (Version {version['VersionNumber']}): {str(e)}")
-                            deleted_flows.append(flow_id)
+                    flow_api_name = self.find_flow_item_by_id(flow_id)
+                    if flow_api_name:
+                        flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
+                        if flow_info:
+                            flow_versions = self.salesforce_api.retrieve_flow_versions(flow_info)
+                            if flow_versions:
+                                for version in flow_versions:
+                                    try:
+                                        self.salesforce_api.delete_flow(version['Id'])
+                                    except Exception as e:
+                                        not_deleted_flows.append(f"{flow_api_name} (Version {version['VersionNumber']}): {str(e)}")
+                                deleted_flows.append(flow_api_name)
+                            else:
+                                not_deleted_flows.append(f"{flow_api_name}: No versions found")
                         else:
-                            not_deleted_flows.append(f"{flow_id}: No versions found")
+                            not_deleted_flows.append(f"{flow_api_name}: Flow definition not found")
                     else:
-                        not_deleted_flows.append(f"{flow_id}: Flow definition not found")
+                        not_deleted_flows.append(f"Flow with ID {flow_id}: Flow item not found")
 
                 if deleted_flows:
                     self.text_area.append(f"Successfully deleted all versions of the following flows:\n{', '.join(deleted_flows)}\n")
@@ -507,31 +451,31 @@ class App(QMainWindow):
 
 
 
-    # def delete_flow(self, flow_id):
-    #     delete_flow_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
-    #     response = requests.delete(delete_flow_url, headers=self.headers)
+    def backup_selected_flows(self):
+        selected_flows = self.get_selected_flows()
+        if not selected_flows:
+            QMessageBox.information(self, "No Flows Selected", "Please select at least one flow to backup.")
+            return
 
-    #     if response.status_code == 400 and "DELETE_FAILED" in response.text:
-    #         self.text_area.append(f"Skipping deletion of active flow version with ID '{flow_id}'.\n")
-    #         self.scroll_to_bottom()
-    #     else:
-    #         response.raise_for_status()
-    #         self.text_area.append(f"Flow with ID '{flow_id}' deleted successfully.\n")
-    #         self.scroll_to_bottom()
+        backup_dir = QFileDialog.getExistingDirectory(self, "Select Backup Directory")
+        if backup_dir:
+            self.backup_manager.backup_flows(selected_flows, backup_dir, self.text_area, self.find_flow_item_by_id, self.salesforce_api.retrieve_flow_definition_details, self.salesforce_api.retrieve_flow_versions)
+        else:
+            self.text_area.append("Backup cancelled.\n")
 
-    # def delete_flowdefinition(self, flow_definition_id):
-    #     delete_flowdefinition_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition/{flow_definition_id}"
-    #     response = requests.delete(delete_flowdefinition_url, headers=self.headers)
-    #     response.raise_for_status()
-    #     self.text_area.append(f"FlowDefinition with ID '{flow_definition_id}' deleted successfully.\n")
-    #     self.scroll_to_bottom()
+        self.scroll_to_bottom()
+
+    def restore_flow(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Flow Backup File", "", "JSON Files (*.json);;XML Files (*.xml)")
+        if file_path:
+            try:
+                self.backup_manager.restore_flow_definition(file_path)
+                self.text_area.append(f"Flow restored successfully from {file_path}\n")
+            except Exception as e:
+                self.text_area.append(f"Error restoring flow: {str(e)}\n")
+            self.scroll_to_bottom()
 
 
-
-    def save_last_config_path(self):
-        config_file = os.path.join(script_dir, "last_config.txt")
-        with open(config_file, "w") as file:
-            file.write(self.config_path)
 
     def configure_app(self, config_path):
         self.config = configparser.ConfigParser()
@@ -539,30 +483,10 @@ class App(QMainWindow):
         self.instance_url = self.config.get('Salesforce', 'instance_url')
         self.session_id = self.config.get('Salesforce', 'session_id')
         self.headers = {'Authorization': f'Bearer {self.session_id}', 'Content-Type': 'application/json'}
-        self.salesforce_api = SalesforceAPI(self.instance_url, self.headers)  # Initialize SalesforceAPI
-        self.backup_manager = FlowBackupManager(self.instance_url, self.headers)  # Initialize here
-        self.text_area.append(f"Loaded config file: {config_path}\n")
+        self.salesforce_api = SalesforceAPI(self.instance_url, self.headers)
+        self.backup_manager = FlowBackupManager(self.instance_url, self.headers)
+        self.ui_helper.append_text(f"Loaded config file: {config_path}\n")
         self.update_connection_status()
-        
-
-    def load_config(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Config File", "", "INI Files (*.ini)")
-        if file_path:
-            self.config_path_entry.setText(file_path)
-            self.config_path = file_path
-            self.save_last_config_path()
-            self.configure_app(file_path)  # Use unified configuration method
-
-    def load_last_config(self):
-        config_file = os.path.join(script_dir, "last_config.txt")
-        if os.path.exists(config_file):
-            with open(config_file, "r") as file:
-                config_path = file.read().strip()
-                if config_path and os.path.exists(config_path):
-                    self.config_path_entry.setText(config_path)
-                    self.config_path = config_path
-                    self.configure_app(config_path)  # Use unified configuration method
-                    
 
     def set_status(self, message, color="black"):
         self.status_bar.setText(message)
@@ -588,10 +512,6 @@ class App(QMainWindow):
         org_info = data['records'][0]
         return org_info
 
-    def scroll_to_bottom(self):
-        cursor = self.text_area.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.text_area.setTextCursor(cursor)
 
 
 def main():
