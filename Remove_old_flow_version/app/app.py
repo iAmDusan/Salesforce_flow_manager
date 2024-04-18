@@ -287,8 +287,6 @@ class App(QMainWindow):
 
 
 
-
-
     def get_selected_flows(self):
         selected_flows = [flow_id for flow_id, checkbox in self.flow_vars.items() if checkbox.isChecked()]
         return selected_flows
