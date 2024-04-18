@@ -3,6 +3,7 @@ import requests
 import json
 import logging
 import xmltodict
+from datetime import datetime
 import xml.etree.ElementTree as ET
 
 # Configure logging
@@ -80,30 +81,83 @@ class FlowBackupManager:
             else:
                 text_area.append(f"Failed to retrieve metadata for version {version['VersionNumber']}. Skipping backup.\n")
 
-    def restore_flow_definition(self, file_path):
-        file_extension = file_path.split('.')[-1].lower()
-        if file_extension == 'json':
-            with open(file_path, 'r') as file:
-                flow_data = json.load(file)
-        elif file_extension == 'xml':
-            tree = ET.parse(file_path)
-            root = tree.getroot()
-            flow_data = self.convert_xml_to_json(root)
-        else:
-            raise ValueError(f"Unsupported file format: {file_extension}")
 
-        # Extract the necessary data from the flow_data
-        flow_definition = flow_data['flowDefinition']
-        flow_versions = flow_data['flowVersions']
 
-        # Restore the flow definition
-        self.create_flow_definition(flow_definition)
+    def restore_flow_definition(self, backup_file_path):
+        flow_file = os.path.basename(backup_file_path)
+        flow_api_name = flow_file[:-9]  # Remove the ".flow.json" extension
+        flow_path = backup_file_path[:-5]  # Remove the ".json" extension
 
-        # Restore the flow versions
-        for version_data in flow_versions:
-            self.create_flow_version(version_data)
+        backup_dir = os.path.dirname(os.path.dirname(flow_path))
+        flow_def_dir = os.path.join(backup_dir, "force-app", "main", "default", "flowDefinitions")
+        flow_def_path = os.path.join(flow_def_dir, f"{flow_api_name}.flowDefinition-meta.xml")
 
-        logging.info(f"Flow definition and versions restored from {file_path}")
+        # Load and parse the FlowDefinition XML
+        with open(flow_def_path, "r") as file:
+            flow_def_xml = file.read()
+        flow_def_data = xmltodict.parse(flow_def_xml)["FlowDefinition"]
+
+        # Create the FlowDefinition
+        create_flow_def_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition/"
+        create_flow_def_data = {
+            "DeveloperName": flow_api_name,
+            "ActiveVersionNumber": flow_def_data["activeVersionNumber"],
+            "Description": flow_def_data.get("description", "")
+        }
+        response = requests.post(create_flow_def_url, headers=self.headers, json=create_flow_def_data)
+        response.raise_for_status()
+        flow_definition_id = response.json()["id"]
+
+        # Restore Flow
+        self.restore_flow_version(flow_definition_id, flow_path)
+    
+    def restore_flow(self, flow_api_name, flow_path):
+        flow_dir = os.path.dirname(flow_path)
+        flow_def_path = os.path.join(flow_dir, f"{flow_api_name}.flowDefinition-meta.xml")
+
+        # Load and parse the FlowDefinition XML
+        with open(flow_def_path, "r") as file:
+            flow_def_xml = file.read()
+        flow_def_data = xmltodict.parse(flow_def_xml)["FlowDefinition"]
+
+        # Create the FlowDefinition
+        create_flow_def_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition/"
+        create_flow_def_data = {
+            "DeveloperName": flow_api_name,
+            "ActiveVersionNumber": flow_def_data["activeVersionNumber"],
+            "Description": flow_def_data.get("description", "")
+        }
+        response = requests.post(create_flow_def_url, headers=self.headers, json=create_flow_def_data)
+        response.raise_for_status()
+        flow_definition_id = response.json()["id"]
+
+        # Restore Flow
+        self.restore_flow_version(flow_definition_id, flow_path)
+
+    def restore_flow_version(self, flow_definition_id, flow_path):
+        flow_path_json = flow_path + ".json"
+
+        # Load and parse the Flow JSON
+        with open(flow_path_json, "r") as file:
+            flow_json = json.load(file)
+
+        # Create the Flow
+        create_flow_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/Flow/"
+        create_flow_data = {
+            "DefinitionId": flow_definition_id,
+            "VersionNumber": flow_json["versionNumber"],
+            "ApiVersion": flow_json["apiVersion"],
+            "Status": "Active" if flow_json["versionNumber"] == int(flow_json["activeVersionNumber"]) else "Inactive",
+            "Description": flow_json.get("description", ""),
+            "ProcessType": flow_json["processType"],
+            "Flow": flow_json["flow"]
+        }
+        response = requests.post(create_flow_url, headers=self.headers, json=create_flow_data)
+        response.raise_for_status()
+        logging.info(f"Flow version {flow_json['versionNumber']} for '{flow_json['developerName']}' restored successfully.")
+
+
+
 
     def convert_xml_to_json(self, xml_element):
         json_data = {}
@@ -113,18 +167,6 @@ class FlowBackupManager:
             else:
                 json_data[child.tag] = self.convert_xml_to_json(child)
         return json_data
-
-    def create_flow_definition(self, flow_definition):
-        url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition"
-        response = requests.post(url, headers=self.headers, json=flow_definition)
-        response.raise_for_status()
-        logging.info(f"Flow definition '{flow_definition['DeveloperName']}' created successfully")
-
-    def create_flow_version(self, version_data):
-        url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/Flow"
-        response = requests.post(url, headers=self.headers, json=version_data)
-        response.raise_for_status()
-        logging.info(f"Flow version {version_data['VersionNumber']} created successfully")
 
     def generate_xml(self, metadata, object_type):
         xml_parts = [f'<?xml version="1.0" encoding="UTF-8"?>\n<{object_type} xmlns="http://soap.sforce.com/2006/04/metadata">']
