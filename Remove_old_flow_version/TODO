@@ -1,2 +1,14 @@
+Modularize
+
+
+Ability to activate/deactivate
+
+Fix Restore
+
+Tree structure for flow versions under definition rows (expandable accordian)
+    Delete individual versions
+
+
 When i select all of the flows and check the "show selected flow info" it takes quite some time to execute....how can we improve efficiency when we are requesting data from man many different flows and versions?
+
 

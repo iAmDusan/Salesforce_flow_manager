@@ -1,0 +1,254 @@
+{
+    "attributes": {
+        "type": "Flow",
+        "url": "/services/data/v52.0/tooling/sobjects/Flow/301VO000006xZr7YAE"
+    },
+    "Id": "301VO000006xZr7YAE",
+    "DefinitionId": "300VO000007Ib8LYAS",
+    "MasterLabel": "Create Task for James",
+    "ManageableState": "unmanaged",
+    "VersionNumber": 6,
+    "Status": "Obsolete",
+    "Description": null,
+    "ProcessType": "AutoLaunchedFlow",
+    "CreatedDate": "2024-03-28T20:32:10.000+0000",
+    "CreatedById": "005Dn000003BbQBIA0",
+    "LastModifiedDate": "2024-03-28T20:36:25.000+0000",
+    "LastModifiedById": "005Dn000003BbQBIA0",
+    "Metadata": {
+        "actionCalls": [],
+        "apexPluginCalls": [],
+        "apiVersion": 60.0,
+        "assignments": [],
+        "choices": [],
+        "collectionProcessors": [],
+        "constants": [],
+        "decisions": [],
+        "description": null,
+        "dynamicChoiceSets": [],
+        "formulas": [
+            {
+                "dataType": "Date",
+                "description": null,
+                "expression": "{!$Record.CreatedDate} + 15",
+                "name": "DueDate",
+                "processMetadataValues": [],
+                "scale": null
+            }
+        ],
+        "interviewLabel": "Create Task for James {!$Flow.CurrentDateTime}",
+        "isAdditionalPermissionRequiredToRun": null,
+        "isTemplate": null,
+        "label": "Create Task for James",
+        "loops": [],
+        "orchestratedStages": [],
+        "processMetadataValues": [
+            {
+                "name": "BuilderType",
+                "value": {
+                    "booleanValue": null,
+                    "dateTimeValue": null,
+                    "dateValue": null,
+                    "elementReference": null,
+                    "numberValue": null,
+                    "stringValue": "LightningFlowBuilder"
+                }
+            },
+            {
+                "name": "CanvasMode",
+                "value": {
+                    "booleanValue": null,
+                    "dateTimeValue": null,
+                    "dateValue": null,
+                    "elementReference": null,
+                    "numberValue": null,
+                    "stringValue": "AUTO_LAYOUT_CANVAS"
+                }
+            },
+            {
+                "name": "OriginBuilderType",
+                "value": {
+                    "booleanValue": null,
+                    "dateTimeValue": null,
+                    "dateValue": null,
+                    "elementReference": null,
+                    "numberValue": null,
+                    "stringValue": "LightningFlowBuilder"
+                }
+            }
+        ],
+        "processType": "AutoLaunchedFlow",
+        "recordCreates": [
+            {
+                "assignRecordIdToReference": null,
+                "connector": null,
+                "description": null,
+                "elementSubtype": null,
+                "faultConnector": null,
+                "inputAssignments": [
+                    {
+                        "field": "ActivityDate",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": "DueDate",
+                            "numberValue": null,
+                            "stringValue": null
+                        }
+                    },
+                    {
+                        "field": "OwnerId",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": null,
+                            "numberValue": null,
+                            "stringValue": "005Dn000003BbQBIA0"
+                        }
+                    },
+                    {
+                        "field": "Priority",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": null,
+                            "numberValue": null,
+                            "stringValue": "Normal"
+                        }
+                    },
+                    {
+                        "field": "Status",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": null,
+                            "numberValue": null,
+                            "stringValue": "In Progress"
+                        }
+                    },
+                    {
+                        "field": "Subject",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": null,
+                            "numberValue": null,
+                            "stringValue": "Review Commercial Case"
+                        }
+                    },
+                    {
+                        "field": "WhatId",
+                        "processMetadataValues": [],
+                        "value": {
+                            "booleanValue": null,
+                            "dateTimeValue": null,
+                            "dateValue": null,
+                            "elementReference": "$Record.Id",
+                            "numberValue": null,
+                            "stringValue": null
+                        }
+                    }
+                ],
+                "inputReference": null,
+                "label": "Create Task",
+                "locationX": 176,
+                "locationY": 323,
+                "name": "Create_Task",
+                "object": "Task",
+                "processMetadataValues": [],
+                "storeOutputAutomatically": true
+            }
+        ],
+        "recordDeletes": [],
+        "recordLookups": [],
+        "recordRollbacks": [],
+        "recordUpdates": [],
+        "runInMode": null,
+        "screens": [],
+        "start": {
+            "connector": {
+                "processMetadataValues": [],
+                "targetReference": "Create_Task"
+            },
+            "description": null,
+            "doesRequireRecordChangedToMeetCriteria": null,
+            "elementSubtype": null,
+            "filterLogic": "and",
+            "filters": [
+                {
+                    "field": "Commercial__c",
+                    "operator": "EqualTo",
+                    "processMetadataValues": [],
+                    "value": {
+                        "booleanValue": true,
+                        "dateTimeValue": null,
+                        "dateValue": null,
+                        "elementReference": null,
+                        "numberValue": null,
+                        "stringValue": null
+                    }
+                },
+                {
+                    "field": "RecordisforDemo__c",
+                    "operator": "EqualTo",
+                    "processMetadataValues": [],
+                    "value": {
+                        "booleanValue": true,
+                        "dateTimeValue": null,
+                        "dateValue": null,
+                        "elementReference": null,
+                        "numberValue": null,
+                        "stringValue": null
+                    }
+                },
+                {
+                    "field": "Commercial__c",
+                    "operator": "IsChanged",
+                    "processMetadataValues": [],
+                    "value": {
+                        "booleanValue": true,
+                        "dateTimeValue": null,
+                        "dateValue": null,
+                        "elementReference": null,
+                        "numberValue": null,
+                        "stringValue": null
+                    }
+                }
+            ],
+            "label": null,
+            "locationX": 50,
+            "locationY": 0,
+            "name": null,
+            "object": "litify_pm__Matter__c",
+            "objectContainer": null,
+            "processMetadataValues": [],
+            "recordTriggerType": "Update",
+            "schedule": null,
+            "scheduledPaths": [],
+            "triggerType": "RecordAfterSave"
+        },
+        "startElementReference": null,
+        "status": "Obsolete",
+        "steps": [],
+        "subflows": [],
+        "textTemplates": [],
+        "urls": null,
+        "variables": [],
+        "waits": []
+    },
+    "FullName": "Create_Task_for_James-6",
+    "IsTemplate": false,
+    "TriggerOrder": null,
+    "RunInMode": null,
+    "ApiVersion": 60.0
+}

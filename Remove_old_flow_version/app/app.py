@@ -4,6 +4,7 @@ import requests
 import configparser
 import logging
 from flow_backup_manager import FlowBackupManager
+from salesforce_api import SalesforceAPI
 from prettytable import PrettyTable
 from PyQt5.QtWidgets import (
     QApplication, QDialogButtonBox, QDialog, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
@@ -22,6 +23,7 @@ class App(QMainWindow):
         self.setWindowTitle("Flow Management Tool")
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumSize(1000, 600)
+        self.salesforce_api = None
         self.config_path = None
         self.instance_url = None
         self.session_id = None
@@ -171,7 +173,7 @@ class App(QMainWindow):
         if self.config:
             self.progress_bar.show()  # Show progress bar during query
             self.progress_bar.setValue(0)
-            all_flows = self.retrieve_all_flows()
+            all_flows = self.salesforce_api.retrieve_all_flows()
             if all_flows:
                 self.flow_tree.clear() 
                 self.flow_vars = self.create_flow_checkboxes(all_flows)
@@ -337,7 +339,7 @@ class App(QMainWindow):
         return selected_flows
 
     def display_flow_versions(self, flow_definition_info):
-        flow_versions = self.retrieve_flow_versions(flow_definition_info)
+        flow_versions = self.salesforce_api.retrieve_flow_versions(flow_definition_info)
         table = PrettyTable()
         table.field_names = ["Index", "ID", "Version Number", "API Version", "Definition ID"]
         for index, fv in enumerate(flow_versions, start=1):
@@ -392,16 +394,16 @@ class App(QMainWindow):
                     flow_item = self.find_flow_item_by_id(flow_id)
                     if flow_item:
                         flow_api_name = flow_item.text(1)  # Assuming the DeveloperName is in the second column
-                        flow_info = self.retrieve_flow_definition_details(flow_api_name)
+                        flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
                         if flow_info:
                             active_version_id = flow_info['ActiveVersionId']
-                            flow_versions = self.retrieve_flow_versions(flow_info)
+                            flow_versions = self.salesforce_api.retrieve_flow_versions(flow_info)
                             if flow_versions:
                                 inactive_versions_deleted = False
                                 for version in flow_versions:
                                     if version['Id'] != active_version_id:
                                         try:
-                                            self.delete_flow(version['Id'])
+                                            self.salesforce_api.delete_flow(version['Id'])
                                             inactive_versions_deleted = True
                                         except Exception as e:
                                             not_deleted_flows.append(f"{flow_api_name} (Version {version['VersionNumber']}): {str(e)}")
@@ -436,16 +438,16 @@ class App(QMainWindow):
                     flow_item = self.find_flow_item_by_id(flow_id)
                     if flow_item:
                         flow_api_name = flow_item.text(1)  # Assuming the DeveloperName is in the second column
-                        flow_info = self.retrieve_flow_definition_details(flow_api_name)
+                        flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_api_name)
                         if flow_info:
                             latest_version_id = flow_info['LatestVersionId']
-                            flow_versions = self.retrieve_flow_versions(flow_info)
+                            flow_versions = self.salesforce_api.retrieve_flow_versions(flow_info)
                             if flow_versions:
                                 old_versions_deleted = False
                                 for version in flow_versions:
                                     if version['Id'] != latest_version_id:
                                         try:
-                                            self.delete_flow(version['Id'])
+                                            self.salesforce_api.delete_flow(version['Id'])
                                             old_versions_deleted = True
                                         except Exception as e:
                                             not_deleted_flows.append(f"{flow_api_name} (Version {version['VersionNumber']}): {str(e)}")
@@ -477,13 +479,13 @@ class App(QMainWindow):
                 deleted_flows = []
                 not_deleted_flows = []
                 for flow_id in selected_flows:
-                    flow_info = self.retrieve_flow_definition_details(flow_id)
+                    flow_info = self.salesforce_api.retrieve_flow_definition_details(flow_id)
                     if flow_info:
-                        flow_versions = self.retrieve_flow_versions(flow_info)
+                        flow_versions = self.salesforce_api.retrieve_flow_versions(flow_info)
                         if flow_versions:
                             for version in flow_versions:
                                 try:
-                                    self.delete_flow(version['Id'])
+                                    self.salesforce_api.delete_flow(version['Id'])
                                 except Exception as e:
                                     not_deleted_flows.append(f"{flow_id} (Version {version['VersionNumber']}): {str(e)}")
                             deleted_flows.append(flow_id)
@@ -503,26 +505,28 @@ class App(QMainWindow):
 
         self.scroll_to_bottom()
 
-        self.scroll_to_bottom()
 
-    def delete_flow(self, flow_id):
-        delete_flow_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
-        response = requests.delete(delete_flow_url, headers=self.headers)
 
-        if response.status_code == 400 and "DELETE_FAILED" in response.text:
-            self.text_area.append(f"Skipping deletion of active flow version with ID '{flow_id}'.\n")
-            self.scroll_to_bottom()
-        else:
-            response.raise_for_status()
-            self.text_area.append(f"Flow with ID '{flow_id}' deleted successfully.\n")
-            self.scroll_to_bottom()
+    # def delete_flow(self, flow_id):
+    #     delete_flow_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/Flow/{flow_id}"
+    #     response = requests.delete(delete_flow_url, headers=self.headers)
 
-    def delete_flowdefinition(self, flow_definition_id):
-        delete_flowdefinition_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition/{flow_definition_id}"
-        response = requests.delete(delete_flowdefinition_url, headers=self.headers)
-        response.raise_for_status()
-        self.text_area.append(f"FlowDefinition with ID '{flow_definition_id}' deleted successfully.\n")
-        self.scroll_to_bottom()
+    #     if response.status_code == 400 and "DELETE_FAILED" in response.text:
+    #         self.text_area.append(f"Skipping deletion of active flow version with ID '{flow_id}'.\n")
+    #         self.scroll_to_bottom()
+    #     else:
+    #         response.raise_for_status()
+    #         self.text_area.append(f"Flow with ID '{flow_id}' deleted successfully.\n")
+    #         self.scroll_to_bottom()
+
+    # def delete_flowdefinition(self, flow_definition_id):
+    #     delete_flowdefinition_url = f"{self.instance_url}/services/data/v52.0/tooling/sobjects/FlowDefinition/{flow_definition_id}"
+    #     response = requests.delete(delete_flowdefinition_url, headers=self.headers)
+    #     response.raise_for_status()
+    #     self.text_area.append(f"FlowDefinition with ID '{flow_definition_id}' deleted successfully.\n")
+    #     self.scroll_to_bottom()
+
+
 
     def save_last_config_path(self):
         config_file = os.path.join(script_dir, "last_config.txt")
@@ -535,9 +539,11 @@ class App(QMainWindow):
         self.instance_url = self.config.get('Salesforce', 'instance_url')
         self.session_id = self.config.get('Salesforce', 'session_id')
         self.headers = {'Authorization': f'Bearer {self.session_id}', 'Content-Type': 'application/json'}
+        self.salesforce_api = SalesforceAPI(self.instance_url, self.headers)  # Initialize SalesforceAPI
         self.backup_manager = FlowBackupManager(self.instance_url, self.headers)  # Initialize here
         self.text_area.append(f"Loaded config file: {config_path}\n")
         self.update_connection_status()
+        
 
     def load_config(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Config File", "", "INI Files (*.ini)")
@@ -564,11 +570,11 @@ class App(QMainWindow):
         
     def update_connection_status(self):
         try:
-            org_info = self.get_org_info()
+            org_info = self.salesforce_api.get_org_info()
             is_sandbox = org_info.get('IsSandbox', False) or 'sandbox' in self.instance_url.lower()
             org_type = org_info.get('OrganizationType', 'Unknown')
             org_id = org_info.get('Id', 'Unknown')
-            org_name = org_info.get('Name','Unknown')
+            org_name = org_info.get('Name', 'Unknown')
             status_text = f"Connected to:  {org_name}    {org_type} Org  ({org_id}) {'(Sandbox)' if is_sandbox else '(Production)'}"
             self.set_status(status_text, color="green")
         except Exception as e:
